@@ -88,7 +88,7 @@ func (f *Function) matchFunction(re *regexp.Regexp) ([]string, bool) {
 			}
 		}
 	}
-	return []string{}, false
+	return nil, false
 }
 
 // File reads a file and gathers the functions defined in it, its exposures, and its mitigations
@@ -100,7 +100,7 @@ func File(filename string) ([]Function, []Exposure, []Mitigation, error) {
 	fset := token.NewFileSet()
 	f, err := parser.ParseFile(fset, filename, nil, parser.ParseComments)
 	if err != nil {
-		return []Function{}, []Exposure{}, []Mitigation{}, err // TODO: this feels wrong
+		return nil, nil, nil, err
 	}
 
 	cmap := ast.NewCommentMap(fset, f, f.Comments)
@@ -136,7 +136,7 @@ func Files(filenames []string) ([]Function, []Exposure, []Mitigation, error) {
 	for _, filename := range filenames {
 		nfuncs, nexposures, nmitigations, err := File(filename)
 		if err != nil {
-			return []Function{}, []Exposure{}, []Mitigation{}, err
+			return nil, nil, nil, err
 		}
 		funcs = append(funcs, nfuncs...)
 		exposures = append(exposures, nexposures...)
