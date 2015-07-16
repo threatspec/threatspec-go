@@ -50,6 +50,11 @@ func (f *Function) LocationString() string {
 	return fmt.Sprintf("%s:%d:%d:%s", f.Filepath, f.Begin, f.End, f.Name)
 }
 
+// LocationStartString returns a compact representation of the function's location, common with the coverage profile
+func (f *Function) LocationStartString() string {
+	return fmt.Sprintf("%s:%d:%s", f.Filepath, f.Begin, f.Name)
+}
+
 func (f *Function) isMitigation() (Mitigation, bool) {
 	m, match := f.matchFunction(mitigationPattern)
 	if match {

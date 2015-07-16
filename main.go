@@ -11,7 +11,7 @@ import (
 	"github.com/srenatus/threatspec-go/threatspec"
 )
 
-var funCovPattern = regexp.MustCompile(`^(?P<loc>[^:]*):(?P<line>[1-9][0-9]+):\t(?P<Fun>.*)\t(?P<cov>[0-9]+\.[0-9])%$`)
+var funCovPattern = regexp.MustCompile(`^(?P<loc>[^:]*):(?P<line>[1-9][0-9]+):\s+(?P<fun>[^\s]+)\s+(?P<cov>[0-9]+\.[0-9])%$`)
 
 func parseFunCov(filename string) (map[string]float64, error) {
 	ms := make(map[string]float64)
@@ -25,10 +25,12 @@ func parseFunCov(filename string) (map[string]float64, error) {
 	scanner.Split(bufio.ScanLines)
 
 	for scanner.Scan() {
-		m := funCovPattern.FindStringSubmatch(scanner.Text())
+		line := scanner.Text()
+		m := funCovPattern.FindStringSubmatch(line)
+
 		if len(m) > 1 {
 			f, _ := strconv.ParseFloat(m[4], 64)
-			ms[m[3]] = f
+			ms[m[1]+":"+m[2]+":"+m[3]] = f
 		}
 	}
 	return ms, nil
@@ -61,13 +63,15 @@ func main() {
 			fmt.Printf("err: %s\n", err)
 			os.Exit(2)
 		}
+
 		for _, m := range ms {
-			val, ok := coverages[m.Function.Name]
+			fl := m.Function.LocationStartString()
+			val, ok := coverages[fl]
 			if !ok {
-				fmt.Printf("No coverage information for mitigation function %s\n", m.Function.LocationString())
+				fmt.Printf("No coverage information for mitigation function %s\n", fl)
 			} else {
 				if val < coverageMin {
-					fmt.Printf("Coverage %f < %f for mitigation function %s\n", val, coverageMin, m.Function.LocationString())
+					fmt.Printf("Coverage %.1f < %.1f for mitigation function %s\n", val, coverageMin, fl)
 				}
 			}
 		}
