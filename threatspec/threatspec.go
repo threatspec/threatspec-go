@@ -1,6 +1,7 @@
 package threatspec
 
 import (
+	"encoding/json"
 	"fmt"
 	"go/ast"
 	"go/parser"
@@ -9,33 +10,98 @@ import (
 	"strings"
 )
 
-// TODO: Refs
-var mitigationPattern = regexp.MustCompile(`^Mitigates (?P<Component>.+?) against (?P<Threat>.+?) with (?P<Mitigation>.+?)$`) //\s*(?:\((?P<Ref>.*?)\))?$`)
-var exposurePattern = regexp.MustCompile(`^Exposes (?P<Component>.+?) to (?P<Threat>.+?) with (?P<Exposure>.+?)$`)            //\s*(?:\((?P<Ref>.*?)\))?`)
+var idCleanPattern = regexp.MustCompile(`[^a-zA-Z0-9 ]+`)
+var idSpacePattern = regexp.MustCompile(`\s+`)
+var mitigationPattern = regexp.MustCompile(`(?i)^\s*mitigates (?:(?P<boundary>.+?):)?(?P<component>.+?) against (?P<threat>.+?) with (?P<mitigation>.+?)\s*(?:\((?P<ref>.*?)\))?\s*$`)
+var exposurePattern = regexp.MustCompile(`(?i)^\s*exposes (?:(?P<boundary>.+?):)?(?P<component>.+?) to (?P<threat>.+?) with (?P<exposure>.+?)\s*(?:\((?P<ref>.*?)\))?\s*$`)
 
-// Currently not used patterns:
-// var ThreatSpecPattern = regexp.MustCompile(`ThreatSpec (?P<Model>.+?) for (?P<Function>.+?)$`)
-// var DoesPattern = regexp.MustCompile(`Does (?P<Action>.+?) for (?P<Component>.+?)\s*(?:\((?P<Ref>.*?)\))?$`)
+/* ****************************************************************
+ * ThreatSpec intermediate representation
+ * ****************************************************************/
 
-// An Exposure ...
-type Exposure struct {
-	Name      string
-	Component string
-	Threat    string
-	Ref       string
-	Function  *Function
+type Id string
+
+var ProjectName string
+
+type Boundary struct {
+	Name string `json:"name"`
 }
 
-// A Mitigation ...
+type Component struct {
+	Name string `json:"name"`
+}
+
+type Threat struct {
+	Name      string `json:"name"`
+	Reference string `json:"reference"`
+}
+
+type Source struct {
+	Function string `json:"function"`
+	File     string `json:"file"`
+	Line     int    `json:"line"`
+}
+
 type Mitigation struct {
-	Name      string
-	Component string
-	Threat    string
-	Ref       string
-	Function  *Function
+	Mitigation string  `json:"mitigation"`
+	Boundary   Id      `json:"boundary"`
+	Component  Id      `json:"component"`
+	Threat     Id      `json:"threat"`
+	Reference  string  `json:"reference"`
+	Source     *Source `json:"source"`
 }
 
-// A Function ...
+type Exposure struct {
+	Exposure  string  `json:"exposure"`
+	Boundary  Id      `json:"boundary"`
+	Component Id      `json:"component"`
+	Threat    Id      `json:"threat"`
+	Reference string  `json:"reference"`
+	Source    *Source `json:"source"`
+}
+
+type Transfer struct {
+	Transfer  string  `json:"transfer"`
+	Boundary  Id      `json:"boundary"`
+	Component Id      `json:"component"`
+	Threat    Id      `json:"threat"`
+	Reference string  `json:"reference"`
+	Source    *Source `json:"source"`
+}
+
+type Acceptance struct {
+	Acceptance string  `json:"acceptance"`
+	Boundary   Id      `json:"boundary"`
+	Component  Id      `json:"component"`
+	Threat     Id      `json:"threat"`
+	Reference  string  `json:"reference"`
+	Source     *Source `json:"source"`
+}
+
+type Call struct {
+	Source      string `json:"source"`
+	Destination string `json:"destination"`
+}
+
+type Project struct {
+	Mitigations map[Id]*Mitigation `json:"mitigations"`
+	Exposures   map[Id]*Exposure   `json:"exposures"`
+	Transfers   map[Id]*Transfer   `json:"transfers"`
+	Acceptances map[Id]*Acceptance `json:"acceptances"`
+}
+
+type ThreatSpec struct {
+	Boundaries map[Id]*Boundary    `json:"boundaries"`
+	Components map[Id]*Component   `json:"components"`
+	Threats    map[Id]*Threat      `json:"threats"`
+	Projects   map[string]*Project `json:"projects"`
+	CallFlow   []*Call             `json:"callflow,omitempty"`
+}
+
+/* ****************************************************************
+ * Supporting structs
+ * ****************************************************************/
+
 type Function struct {
 	Name     string
 	Package  string
@@ -43,6 +109,14 @@ type Function struct {
 	End      int
 	Filepath string
 	Comments []*ast.CommentGroup
+}
+
+func (f *Function) FullName() string {
+	return fmt.Sprintf("%s.%s", f.Package, f.Name)
+}
+
+func (f *Function) Line() int {
+	return f.Begin
 }
 
 // LocationString returns a compact representation of the function's location
@@ -55,115 +129,192 @@ func (f *Function) LocationStartString() string {
 	return fmt.Sprintf("%s:%d:%s", f.Filepath, f.Begin, f.Name)
 }
 
-func (f *Function) isMitigation() (Mitigation, bool) {
-	m, match := f.matchFunction(mitigationPattern)
-	if match {
-		ref := ""
-		if len(m) == 4 {
-			ref = m[3]
-		}
-		return Mitigation{Name: m[2], Component: m[0], Threat: m[1], Ref: ref, Function: f}, true
+func (f *Function) ToSource() *Source {
+	return &Source{
+		Function: f.FullName(),
+		File:     f.Filepath,
+		Line:     f.Line(),
 	}
-	return Mitigation{}, false
 }
 
-func (f *Function) isExposure() (Exposure, bool) {
-	m, match := f.matchFunction(exposurePattern)
-	if match {
-		ref := ""
-		if len(m) == 4 {
-			ref = m[3]
-		}
-		return Exposure{Name: m[2], Component: m[0], Threat: m[1], Ref: ref, Function: f}, true
+/* ****************************************************************
+ * Main functions
+ * ****************************************************************/
+
+func New(project string) *ThreatSpec {
+	ProjectName = project
+
+	ts := &ThreatSpec{
+		Boundaries: make(map[Id]*Boundary),
+		Components: make(map[Id]*Component),
+		Threats:    make(map[Id]*Threat),
+		Projects:   make(map[string]*Project),
+		CallFlow:   make([]*Call, 0),
 	}
-	return Exposure{}, false
+	ts.Projects[ProjectName] = &Project{
+		Mitigations: make(map[Id]*Mitigation),
+		Exposures:   make(map[Id]*Exposure),
+		Transfers:   make(map[Id]*Transfer),
+		Acceptances: make(map[Id]*Acceptance),
+	}
+
+	return ts
 }
 
-func (f *Function) matchFunction(re *regexp.Regexp) ([]string, bool) {
-	for _, lines := range f.Comments {
-		for _, line := range strings.Split(lines.Text(), "\n") {
-			m := re.FindStringSubmatch(line)
-			if len(m) > 1 {
-				return m[1:], true // cut-off whole-line match
-			}
-		}
+func (ts *ThreatSpec) ToJson() string {
+	dump, err := json.MarshalIndent(ts, "", "  ")
+	if err != nil {
+		return ""
 	}
-	return nil, false
+	return string(dump)
 }
 
-// File reads a file and gathers the functions defined in it, its exposures, and its mitigations
-func File(filename string) ([]Function, []Exposure, []Mitigation, error) {
-	var res []Function
-	var exposures []Exposure
-	var mitigations []Mitigation
+func (ts *ThreatSpec) ToId(name string) Id {
+	clean := idCleanPattern.ReplaceAllString(name, "")
+	underscored := idSpacePattern.ReplaceAllString(clean, "_")
+	lower := strings.ToLower(underscored)
+	return Id(fmt.Sprintf("@%s", lower))
+}
+
+func (ts *ThreatSpec) matchLine(line string, re *regexp.Regexp) map[string]string {
+	match := re.FindStringSubmatch(line)
+	if match == nil {
+		return nil
+	}
+	result := make(map[string]string)
+
+	for i, name := range re.SubexpNames() {
+		result[name] = match[i]
+	}
+
+	return result
+}
+
+func (ts *ThreatSpec) IsMitigation(line string, source *Source) (Id, *Mitigation) {
+	m := ts.matchLine(line, mitigationPattern)
+	if m == nil {
+		return "", nil
+	}
+
+	mitigationId := ts.ToId(m["mitigation"])
+
+	boundaryId := ts.AddBoundary(m["boundary"])
+	componentId := ts.AddComponent(m["component"])
+	threatId := ts.AddThreat(m["threat"])
+
+	return mitigationId, &Mitigation{
+		Mitigation: m["mitigation"],
+		Boundary:   boundaryId,
+		Component:  componentId,
+		Threat:     threatId,
+		Reference:  m["reference"],
+		Source:     source,
+	}
+}
+
+func (ts *ThreatSpec) IsExposure(line string, source *Source) (Id, *Exposure) {
+	m := ts.matchLine(line, exposurePattern)
+	if m == nil {
+		return "", nil
+	}
+
+	exposureId := ts.ToId(m["exposure"])
+
+	boundaryId := ts.AddBoundary(m["boundary"])
+	componentId := ts.AddComponent(m["component"])
+	threatId := ts.AddThreat(m["threat"])
+
+	return exposureId, &Exposure{
+		Exposure:  m["exposure"],
+		Boundary:  boundaryId,
+		Component: componentId,
+		Threat:    threatId,
+		Reference: m["reference"],
+		Source:    source,
+	}
+}
+
+func (ts *ThreatSpec) AddBoundary(boundary string) Id {
+	id := ts.ToId(boundary)
+
+	if _, ok := ts.Boundaries[id]; !ok {
+		ts.Boundaries[id] = &Boundary{Name: boundary}
+	}
+
+	return id
+}
+
+func (ts *ThreatSpec) AddComponent(component string) Id {
+	id := ts.ToId(component)
+
+	if _, ok := ts.Components[id]; !ok {
+		ts.Components[id] = &Component{Name: component}
+	}
+
+	return id
+}
+
+func (ts *ThreatSpec) AddThreat(threat string) Id {
+	id := ts.ToId(threat)
+
+	if _, ok := ts.Threats[id]; !ok {
+		ts.Threats[id] = &Threat{Name: threat, Reference: ""}
+	}
+
+	return id
+}
+
+func (ts *ThreatSpec) AddMitigation(id Id, mitigation *Mitigation) {
+	ts.Projects[ProjectName].Mitigations[id] = mitigation
+}
+
+func (ts *ThreatSpec) AddExposure(id Id, exposure *Exposure) {
+	ts.Projects[ProjectName].Exposures[id] = exposure
+}
+
+func (ts *ThreatSpec) Parse(filenames []string) error {
+
+	for _, filename := range filenames {
+		if err := ts.ParseFile(filename); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (ts *ThreatSpec) ParseFile(filename string) error {
 
 	fset := token.NewFileSet()
 	f, err := parser.ParseFile(fset, filename, nil, parser.ParseComments)
 	if err != nil {
-		return nil, nil, nil, err
+		return err
 	}
 
 	cmap := ast.NewCommentMap(fset, f, f.Comments)
 	ast.Inspect(f, func(n ast.Node) bool {
 		switch x := n.(type) {
 		case *ast.FuncDecl:
-			fun := Function{Begin: fset.Position(x.Pos()).Line,
+			function := Function{Begin: fset.Position(x.Pos()).Line,
 				Package:  f.Name.String(),
 				Name:     x.Name.String(),
 				End:      fset.Position(x.End()).Line,
 				Filepath: fset.Position(x.Pos()).Filename,
 				Comments: cmap[n]}
 
-			if e, match := fun.isExposure(); match {
-				exposures = append(exposures, e)
+			source := function.ToSource()
+			for _, lines := range f.Comments {
+				for _, line := range strings.Split(lines.Text(), "\n") {
+					if id, mitigation := ts.IsMitigation(line, source); mitigation != nil {
+						ts.AddMitigation(id, mitigation)
+					} else if id, exposure := ts.IsExposure(line, source); exposure != nil {
+						ts.AddExposure(id, exposure)
+					}
+				}
 			}
-			if m, match := fun.isMitigation(); match {
-				mitigations = append(mitigations, m)
-			}
-			res = append(res, fun)
+
 		}
 		return true
 	})
-	return res, exposures, mitigations, nil
-}
-
-// Files is a convenience wrapper
-func Files(filenames []string) ([]Function, []Exposure, []Mitigation, error) {
-	var funcs []Function
-	var exposures []Exposure
-	var mitigations []Mitigation
-
-	for _, filename := range filenames {
-		nfuncs, nexposures, nmitigations, err := File(filename)
-		if err != nil {
-			return nil, nil, nil, err
-		}
-		funcs = append(funcs, nfuncs...)
-		exposures = append(exposures, nexposures...)
-		mitigations = append(mitigations, nmitigations...)
-	}
-	return funcs, exposures, mitigations, nil
-}
-
-// IsMitigated returns if the exposure is mitigated by the given mitigations
-func (e *Exposure) IsMitigated(ms []Mitigation) bool {
-	found := false
-	for _, m := range ms {
-		if m.Threat == e.Threat && m.Component == e.Component {
-			found = true
-			break
-		}
-	}
-	return found
-}
-
-// Unmitigated returns unmitigated exposures
-func Unmitigated(es []Exposure, ms []Mitigation) []Exposure {
-	var us []Exposure
-	for _, e := range es {
-		if !e.IsMitigated(ms) {
-			us = append(us, e)
-		}
-	}
-	return us
+	return nil
 }
