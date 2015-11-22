@@ -21,13 +21,13 @@ func main() {
 			exposuresFound = true
 			for _, exposures := range ts.Projects[projectName].Exposures {
 				for _, exposure := range exposures {
-					fmt.Printf("WARNING: %s:%s exposed to %s by %s in %s:%s (%d)\n",
+					fmt.Printf("WARNING %s:%s exposed to %s by %s in %s (%s:%d)\n",
 						ts.Boundaries[exposure.Boundary].Name,
 						ts.Components[exposure.Component].Name,
 						ts.Threats[exposure.Threat].Name,
 						exposure.Exposure,
-						exposure.Source.File,
 						exposure.Source.Function,
+						exposure.Source.File,
 						exposure.Source.Line)
 				}
 			}
