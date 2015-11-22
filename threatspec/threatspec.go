@@ -84,10 +84,10 @@ type Call struct {
 }
 
 type Project struct {
-	Mitigations map[Id]*Mitigation `json:"mitigations"`
-	Exposures   map[Id]*Exposure   `json:"exposures"`
-	Transfers   map[Id]*Transfer   `json:"transfers"`
-	Acceptances map[Id]*Acceptance `json:"acceptances"`
+	Mitigations map[Id][]*Mitigation `json:"mitigations"`
+	Exposures   map[Id][]*Exposure   `json:"exposures"`
+	Transfers   map[Id][]*Transfer   `json:"transfers"`
+	Acceptances map[Id][]*Acceptance `json:"acceptances"`
 }
 
 type ThreatSpec struct {
@@ -105,6 +105,7 @@ type ThreatSpec struct {
 type Function struct {
 	Name     string
 	Package  string
+	Type     string
 	Begin    int
 	End      int
 	Filepath string
@@ -112,7 +113,11 @@ type Function struct {
 }
 
 func (f *Function) FullName() string {
-	return fmt.Sprintf("%s.%s", f.Package, f.Name)
+	if f.Type != "" {
+		return fmt.Sprintf("%s.%s.%s", f.Package, f.Type, f.Name)
+	} else {
+		return fmt.Sprintf("%s.%s", f.Package, f.Name)
+	}
 }
 
 func (f *Function) Line() int {
@@ -152,10 +157,10 @@ func New(project string) *ThreatSpec {
 		CallFlow:   make([]*Call, 0),
 	}
 	ts.Projects[ProjectName] = &Project{
-		Mitigations: make(map[Id]*Mitigation),
-		Exposures:   make(map[Id]*Exposure),
-		Transfers:   make(map[Id]*Transfer),
-		Acceptances: make(map[Id]*Acceptance),
+		Mitigations: make(map[Id][]*Mitigation),
+		Exposures:   make(map[Id][]*Exposure),
+		Transfers:   make(map[Id][]*Transfer),
+		Acceptances: make(map[Id][]*Acceptance),
 	}
 
 	return ts
@@ -190,7 +195,7 @@ func (ts *ThreatSpec) matchLine(line string, re *regexp.Regexp) map[string]strin
 	return result
 }
 
-func (ts *ThreatSpec) IsMitigation(line string, source *Source) (Id, *Mitigation) {
+func (ts *ThreatSpec) ParseMitigation(line string, source *Source) (Id, *Mitigation) {
 	m := ts.matchLine(line, mitigationPattern)
 	if m == nil {
 		return "", nil
@@ -212,7 +217,7 @@ func (ts *ThreatSpec) IsMitigation(line string, source *Source) (Id, *Mitigation
 	}
 }
 
-func (ts *ThreatSpec) IsExposure(line string, source *Source) (Id, *Exposure) {
+func (ts *ThreatSpec) ParseExposure(line string, source *Source) (Id, *Exposure) {
 	m := ts.matchLine(line, exposurePattern)
 	if m == nil {
 		return "", nil
@@ -265,11 +270,11 @@ func (ts *ThreatSpec) AddThreat(threat string) Id {
 }
 
 func (ts *ThreatSpec) AddMitigation(id Id, mitigation *Mitigation) {
-	ts.Projects[ProjectName].Mitigations[id] = mitigation
+	ts.Projects[ProjectName].Mitigations[id] = append(ts.Projects[ProjectName].Mitigations[id], mitigation)
 }
 
 func (ts *ThreatSpec) AddExposure(id Id, exposure *Exposure) {
-	ts.Projects[ProjectName].Exposures[id] = exposure
+	ts.Projects[ProjectName].Exposures[id] = append(ts.Projects[ProjectName].Exposures[id], exposure)
 }
 
 func (ts *ThreatSpec) Parse(filenames []string) error {
@@ -295,19 +300,32 @@ func (ts *ThreatSpec) ParseFile(filename string) error {
 	ast.Inspect(f, func(n ast.Node) bool {
 		switch x := n.(type) {
 		case *ast.FuncDecl:
+			/*var fType string
+			fType = ""
+			if x.Recv != nil {
+				fmt.Println(x.Recv.List[0].Type.(*ast.Ident).Name)
+			}*/
+			/*if len(x.Recv.List) > 1 {
+				//fType = x.Recv.List[0].Names[0].Name
+				fType = ""
+			} else {
+				fType = ""
+			}*/
+
 			function := Function{Begin: fset.Position(x.Pos()).Line,
 				Package:  f.Name.String(),
 				Name:     x.Name.String(),
+				Type:     "",
 				End:      fset.Position(x.End()).Line,
 				Filepath: fset.Position(x.Pos()).Filename,
 				Comments: cmap[n]}
 
 			source := function.ToSource()
-			for _, lines := range f.Comments {
+			for _, lines := range function.Comments {
 				for _, line := range strings.Split(lines.Text(), "\n") {
-					if id, mitigation := ts.IsMitigation(line, source); mitigation != nil {
+					if id, mitigation := ts.ParseMitigation(line, source); mitigation != nil {
 						ts.AddMitigation(id, mitigation)
-					} else if id, exposure := ts.IsExposure(line, source); exposure != nil {
+					} else if id, exposure := ts.ParseExposure(line, source); exposure != nil {
 						ts.AddExposure(id, exposure)
 					}
 				}

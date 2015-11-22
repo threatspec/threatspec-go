@@ -48,68 +48,102 @@
   "projects": {
     "Simple": {
       "mitigations": {
-        "@basic_input_validation": {
-          "mitigation": "basic input validation",
-          "boundary": "@webapp",
-          "component": "@web",
-          "threat": "@resource_access_abuse",
-          "reference": "",
-          "source": {
-            "function": "main.main",
-            "file": "simple.go",
-            "line": 98
+        "@basic_input_validation": [
+          {
+            "mitigation": "basic input validation",
+            "boundary": "@webapp",
+            "component": "@web",
+            "threat": "@resource_access_abuse",
+            "reference": "",
+            "source": {
+              "function": "main.makeHandler",
+              "file": "simple.go",
+              "line": 86
+            }
           }
-        },
-        "@nonprivileged_port": {
-          "mitigation": "non-privileged port",
-          "boundary": "@webapp",
-          "component": "@web",
-          "threat": "@privilege_escalation",
-          "reference": "",
-          "source": {
-            "function": "main.main",
-            "file": "simple.go",
-            "line": 98
+        ],
+        "@nonprivileged_port": [
+          {
+            "mitigation": "non-privileged port",
+            "boundary": "@webapp",
+            "component": "@web",
+            "threat": "@privilege_escalation",
+            "reference": "",
+            "source": {
+              "function": "main.main",
+              "file": "simple.go",
+              "line": 98
+            }
           }
-        },
-        "@strict_file_permissions": {
-          "mitigation": "strict file permissions",
-          "boundary": "@webapp",
-          "component": "@filesystem",
-          "threat": "@unauthorised_access",
-          "reference": "",
-          "source": {
-            "function": "main.main",
-            "file": "simple.go",
-            "line": 98
+        ],
+        "@strict_file_permissions": [
+          {
+            "mitigation": "strict file permissions",
+            "boundary": "@webapp",
+            "component": "@filesystem",
+            "threat": "@unauthorised_access",
+            "reference": "",
+            "source": {
+              "function": "main.save",
+              "file": "simple.go",
+              "line": 29
+            }
           }
-        }
+        ]
       },
       "exposures": {
-        "@insufficient_input_validation": {
-          "exposure": "insufficient input validation",
-          "boundary": "@webapp",
-          "component": "@app",
-          "threat": "@content_injection",
-          "reference": "",
-          "source": {
-            "function": "main.main",
-            "file": "simple.go",
-            "line": 98
+        "@insufficient_input_validation": [
+          {
+            "exposure": "insufficient input validation",
+            "boundary": "@webapp",
+            "component": "@app",
+            "threat": "@xss_injection",
+            "reference": "",
+            "source": {
+              "function": "main.editHandler",
+              "file": "simple.go",
+              "line": 54
+            }
+          },
+          {
+            "exposure": "insufficient input validation",
+            "boundary": "@webapp",
+            "component": "@app",
+            "threat": "@content_injection",
+            "reference": "",
+            "source": {
+              "function": "main.saveHandler",
+              "file": "simple.go",
+              "line": 63
+            }
           }
-        },
-        "@insufficient_path_validation": {
-          "exposure": "insufficient path validation",
-          "boundary": "@webapp",
-          "component": "@filesystem",
-          "threat": "@arbitrary_file_reads",
-          "reference": "",
-          "source": {
-            "function": "main.main",
-            "file": "simple.go",
-            "line": 98
+        ],
+        "@insufficient_path_validation": [
+          {
+            "exposure": "insufficient path validation",
+            "boundary": "@webapp",
+            "component": "@filesystem",
+            "threat": "@arbitrary_file_writes",
+            "reference": "",
+            "source": {
+              "function": "main.save",
+              "file": "simple.go",
+              "line": 29
+            }
+          },
+          {
+            "exposure": "insufficient path validation",
+            "boundary": "@webapp",
+            "component": "@filesystem",
+            "threat": "@arbitrary_file_reads",
+            "reference": "",
+            "source": {
+              "function": "main.loadPage",
+              "file": "simple.go",
+              "line": 35
+            }
           }
-        }
+        ]
       },
       "transfers": {},
       "acceptances": {}
