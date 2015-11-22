@@ -2,8 +2,8 @@
   "metadata": {
     "name": "ThreatSpec",
     "version": "0.1",
-    "created": 1448180872,
-    "updated": 1448180872
+    "created": 1448183936,
+    "updated": 1448183936
   },
   "boundaries": {
     "@webapp": {
@@ -90,7 +90,7 @@
             "threat": "@unauthorised_access",
             "reference": "",
             "source": {
-              "function": "main.save",
+              "function": "main.(*Page).save",
               "file": "simple.go",
               "line": 29
             }
@@ -132,7 +132,7 @@
             "threat": "@arbitrary_file_writes",
             "reference": "",
             "source": {
-              "function": "main.save",
+              "function": "main.(*Page).save",
               "file": "simple.go",
               "line": 29
             }

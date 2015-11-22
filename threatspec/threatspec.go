@@ -318,22 +318,23 @@ func (ts *ThreatSpec) ParseFile(filename string) error {
 	ast.Inspect(f, func(n ast.Node) bool {
 		switch x := n.(type) {
 		case *ast.FuncDecl:
-			/*var fType string
-			fType = ""
+			var fType string
+			// https://www.socketloop.com/references/golang-go-ast-funcdecl-type-example
 			if x.Recv != nil {
-				fmt.Println(x.Recv.List[0].Type.(*ast.Ident).Name)
-			}*/
-			/*if len(x.Recv.List) > 1 {
-				//fType = x.Recv.List[0].Names[0].Name
-				fType = ""
+				recvType := x.Recv.List[0].Type
+				if recvStarType, ok := recvType.(*ast.StarExpr); ok {
+					fType = "(*" + recvStarType.X.(*ast.Ident).Name + ")"
+				} else {
+					fType = recvType.(*ast.Ident).Name
+				}
 			} else {
 				fType = ""
-			}*/
+			}
 
 			function := Function{Begin: fset.Position(x.Pos()).Line,
 				Package:  f.Name.String(),
 				Name:     x.Name.String(),
-				Type:     "",
+				Type:     fType,
 				End:      fset.Position(x.End()).Line,
 				Filepath: fset.Position(x.Pos()).Filename,
 				Comments: cmap[n]}
