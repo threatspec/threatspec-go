@@ -6,6 +6,7 @@ import (
 	"go/ast"
 	"go/parser"
 	"go/token"
+	"io/ioutil"
 	"regexp"
 	"strings"
 	"time"
@@ -354,4 +355,26 @@ func (ts *ThreatSpec) ParseFile(filename string) error {
 		return true
 	})
 	return nil
+}
+
+func (ts *ThreatSpec) LoadFile(filename string) error {
+	jsonBlob, err := ioutil.ReadFile(filename)
+	if err != nil {
+		return err
+	}
+
+	if err := json.Unmarshal(jsonBlob, ts); err != nil {
+		return err
+	}
+	return nil
+}
+
+func Load(filenames []string) (*ThreatSpec, error) {
+	ts := new(ThreatSpec)
+	for _, filename := range filenames {
+		if err := ts.LoadFile(filename); err != nil {
+			return nil, err
+		}
+	}
+	return ts, nil
 }
