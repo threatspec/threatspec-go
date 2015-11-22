@@ -8,7 +8,11 @@ import (
 	"go/token"
 	"regexp"
 	"strings"
+	"time"
 )
+
+var Name = "ThreatSpec"
+var Version = "0.1"
 
 var idCleanPattern = regexp.MustCompile(`[^a-zA-Z0-9 ]+`)
 var idSpacePattern = regexp.MustCompile(`\s+`)
@@ -22,6 +26,13 @@ var exposurePattern = regexp.MustCompile(`(?i)^\s*exposes (?:(?P<boundary>.+?):)
 type Id string
 
 var ProjectName string
+
+type Metadata struct {
+	Name    string `json:"name"`
+	Version string `json:"version"`
+	Created int64  `json:"created"`
+	Updated int64  `json:"updated"`
+}
 
 type Boundary struct {
 	Name string `json:"name"`
@@ -91,6 +102,7 @@ type Project struct {
 }
 
 type ThreatSpec struct {
+	Metadata   *Metadata           `json:"metadata"`
 	Boundaries map[Id]*Boundary    `json:"boundaries"`
 	Components map[Id]*Component   `json:"components"`
 	Threats    map[Id]*Threat      `json:"threats"`
@@ -150,6 +162,12 @@ func New(project string) *ThreatSpec {
 	ProjectName = project
 
 	ts := &ThreatSpec{
+		Metadata: &Metadata{
+			Name:    Name,
+			Version: Version,
+			Created: time.Now().Unix(),
+			Updated: time.Now().Unix(),
+		},
 		Boundaries: make(map[Id]*Boundary),
 		Components: make(map[Id]*Component),
 		Threats:    make(map[Id]*Threat),

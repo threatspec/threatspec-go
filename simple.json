@@ -1,4 +1,10 @@
 {
+  "metadata": {
+    "name": "ThreatSpec",
+    "version": "0.1",
+    "created": 1448180872,
+    "updated": 1448180872
+  },
   "boundaries": {
     "@webapp": {
       "name": "WebApp"
