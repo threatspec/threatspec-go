@@ -24,14 +24,14 @@ type Page struct {
 	Body  []byte
 }
 
-// Exposes WebApp:FileSystem to arbitrary file writes with insufficient path validation
+// Accepts arbitrary file writes to WebApp:FileSystem with filename restrictions
 // Mitigates WebApp:FileSystem against unauthorised access with strict file permissions
 func (p *Page) save() error {
 	filename := p.Title + ".txt"
 	return ioutil.WriteFile(filename, p.Body, 0600)
 }
 
-// Exposes WebApp:FileSystem to arbitrary file reads with insufficient path validation
+// Accepts arbitrary file reads to WebApp:FileSystem with filename restrictions
 func loadPage(title string) (*Page, error) {
 	filename := title + ".txt"
 	body, err := ioutil.ReadFile(filename)
@@ -95,6 +95,7 @@ func makeHandler(fn func(http.ResponseWriter, *http.Request, string)) http.Handl
 }
 
 // Mitigates WebApp:Web against privilege escalation with non-privileged port
+// Transfers @cwe_319_cleartext_transmission to User with non-sensitive information
 func main() {
 	flag.Parse()
 	http.HandleFunc("/view/", makeHandler(viewHandler))

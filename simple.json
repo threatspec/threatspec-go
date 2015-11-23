@@ -2,8 +2,8 @@
   "metadata": {
     "name": "ThreatSpec",
     "version": "0.1",
-    "created": 1448183936,
-    "updated": 1448183936
+    "created": 1448303725,
+    "updated": 1448303725
   },
   "boundaries": {
     "@webapp": {
@@ -16,6 +16,9 @@
     },
     "@filesystem": {
       "name": "FileSystem"
+    },
+    "@user": {
+      "name": "User"
     },
     "@web": {
       "name": "Web"
@@ -30,8 +33,16 @@
       "name": "arbitrary file writes",
       "reference": ""
     },
+    "@cats_like_milk": {
+      "name": "true story",
+      "reference": ""
+    },
     "@content_injection": {
       "name": "content injection",
+      "reference": ""
+    },
+    "@cwe_319_cleartext_transmission": {
+      "name": "The software transmits sensitive or security-critical data in cleartext in a communication channel that can be sniffed by unauthorized actors",
       "reference": ""
     },
     "@privilege_escalation": {
@@ -78,7 +89,7 @@
             "source": {
               "function": "main.main",
               "file": "simple.go",
-              "line": 98
+              "line": 99
             }
           }
         ],
@@ -123,10 +134,28 @@
               "line": 63
             }
           }
-        ],
-        "@insufficient_path_validation": [
+        ]
+      },
+      "transfers": {
+        "@nonsensitive_information": [
           {
-            "exposure": "insufficient path validation",
+            "transfer": "non-sensitive information",
+            "boundary": "",
+            "component": "@user",
+            "threat": "@cwe_319_cleartext_transmission",
+            "reference": "",
+            "source": {
+              "function": "main.main",
+              "file": "simple.go",
+              "line": 99
+            }
+          }
+        ]
+      },
+      "acceptances": {
+        "@filename_restrictions": [
+          {
+            "acceptance": "filename restrictions",
             "boundary": "@webapp",
             "component": "@filesystem",
             "threat": "@arbitrary_file_writes",
@@ -138,7 +167,7 @@
             }
           },
           {
-            "exposure": "insufficient path validation",
+            "acceptance": "filename restrictions",
             "boundary": "@webapp",
             "component": "@filesystem",
             "threat": "@arbitrary_file_reads",
@@ -150,9 +179,7 @@
             }
           }
         ]
-      },
-      "transfers": {},
-      "acceptances": {}
+      }
     }
   }
 }
