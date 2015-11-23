@@ -7,6 +7,7 @@ import (
 	"go/parser"
 	"go/token"
 	"io/ioutil"
+	"path"
 	"regexp"
 	"strings"
 	"time"
@@ -17,8 +18,12 @@ var Version = "0.1"
 
 var idCleanPattern = regexp.MustCompile(`[^a-zA-Z0-9 ]+`)
 var idSpacePattern = regexp.MustCompile(`\s+`)
+
+var aliasPattern = regexp.MustCompile(`(?i)^\s*alias (?P<class>boundary|component|threat) (?P<alias>\@[a-z0-9_]+?) to (?P<text>.+?)\s*$`)
 var mitigationPattern = regexp.MustCompile(`(?i)^\s*mitigates (?:(?P<boundary>.+?):)?(?P<component>.+?) against (?P<threat>.+?) with (?P<mitigation>.+?)\s*(?:\((?P<ref>.*?)\))?\s*$`)
 var exposurePattern = regexp.MustCompile(`(?i)^\s*exposes (?:(?P<boundary>.+?):)?(?P<component>.+?) to (?P<threat>.+?) with (?P<exposure>.+?)\s*(?:\((?P<ref>.*?)\))?\s*$`)
+var acceptancePattern = regexp.MustCompile(`(?i)^\s*accepts (?P<threat>.+?) to (?:(?P<boundary>.+?):)?(?P<component>.+?) with (?P<acceptance>.+?)\s*(?:\((?P<ref>.*?)\))?\s*$`)
+var transferPattern = regexp.MustCompile(`(?i)^\s*transfers (?P<threat>.+?) to (?:(?P<boundary>.+?):)?(?P<component>.+?) with (?P<transfer>.+?)\s*(?:\((?P<ref>.*?)\))?\s*$`)
 
 /* ****************************************************************
  * ThreatSpec intermediate representation
@@ -33,6 +38,11 @@ type Metadata struct {
 	Version string `json:"version"`
 	Created int64  `json:"created"`
 	Updated int64  `json:"updated"`
+}
+
+type Alias struct {
+	Class string `json:"string"`
+	Text  string `json:"text"`
 }
 
 type Boundary struct {
@@ -60,7 +70,7 @@ type Mitigation struct {
 	Component  Id      `json:"component"`
 	Threat     Id      `json:"threat"`
 	Reference  string  `json:"reference"`
-	Source     *Source `json:"source"`
+	Source     *Source `json:"source,omitempty"`
 }
 
 type Exposure struct {
@@ -69,7 +79,7 @@ type Exposure struct {
 	Component Id      `json:"component"`
 	Threat    Id      `json:"threat"`
 	Reference string  `json:"reference"`
-	Source    *Source `json:"source"`
+	Source    *Source `json:"source,omitempty"`
 }
 
 type Transfer struct {
@@ -78,7 +88,7 @@ type Transfer struct {
 	Component Id      `json:"component"`
 	Threat    Id      `json:"threat"`
 	Reference string  `json:"reference"`
-	Source    *Source `json:"source"`
+	Source    *Source `json:"source,omitempty"`
 }
 
 type Acceptance struct {
@@ -87,7 +97,7 @@ type Acceptance struct {
 	Component  Id      `json:"component"`
 	Threat     Id      `json:"threat"`
 	Reference  string  `json:"reference"`
-	Source     *Source `json:"source"`
+	Source     *Source `json:"source,omitempty"`
 }
 
 type Call struct {
@@ -194,6 +204,15 @@ func (ts *ThreatSpec) ToJson() string {
 }
 
 func (ts *ThreatSpec) ToId(name string) Id {
+
+	if name == "" {
+		return ""
+	}
+
+	if string([]rune(name)[0]) == "@" {
+		return Id(name)
+	}
+
 	clean := idCleanPattern.ReplaceAllString(name, "")
 	underscored := idSpacePattern.ReplaceAllString(clean, "_")
 	lower := strings.ToLower(underscored)
@@ -214,6 +233,19 @@ func (ts *ThreatSpec) matchLine(line string, re *regexp.Regexp) map[string]strin
 	return result
 }
 
+func (ts *ThreatSpec) ParseAlias(line string) (Id, *Alias) {
+	m := ts.matchLine(line, aliasPattern)
+	if m == nil {
+		return "", nil
+	}
+	aliasId := ts.ToId(m["alias"])
+
+	return aliasId, &Alias{
+		Class: m["class"],
+		Text:  m["text"],
+	}
+}
+
 func (ts *ThreatSpec) ParseMitigation(line string, source *Source) (Id, *Mitigation) {
 	m := ts.matchLine(line, mitigationPattern)
 	if m == nil {
@@ -222,9 +254,9 @@ func (ts *ThreatSpec) ParseMitigation(line string, source *Source) (Id, *Mitigat
 
 	mitigationId := ts.ToId(m["mitigation"])
 
-	boundaryId := ts.AddBoundary(m["boundary"])
-	componentId := ts.AddComponent(m["component"])
-	threatId := ts.AddThreat(m["threat"])
+	boundaryId := ts.AddBoundary("", m["boundary"])
+	componentId := ts.AddComponent("", m["component"])
+	threatId := ts.AddThreat("", m["threat"])
 
 	return mitigationId, &Mitigation{
 		Mitigation: m["mitigation"],
@@ -244,9 +276,9 @@ func (ts *ThreatSpec) ParseExposure(line string, source *Source) (Id, *Exposure)
 
 	exposureId := ts.ToId(m["exposure"])
 
-	boundaryId := ts.AddBoundary(m["boundary"])
-	componentId := ts.AddComponent(m["component"])
-	threatId := ts.AddThreat(m["threat"])
+	boundaryId := ts.AddBoundary("", m["boundary"])
+	componentId := ts.AddComponent("", m["component"])
+	threatId := ts.AddThreat("", m["threat"])
 
 	return exposureId, &Exposure{
 		Exposure:  m["exposure"],
@@ -258,8 +290,58 @@ func (ts *ThreatSpec) ParseExposure(line string, source *Source) (Id, *Exposure)
 	}
 }
 
-func (ts *ThreatSpec) AddBoundary(boundary string) Id {
-	id := ts.ToId(boundary)
+func (ts *ThreatSpec) ParseTransfer(line string, source *Source) (Id, *Transfer) {
+	m := ts.matchLine(line, transferPattern)
+	if m == nil {
+		return "", nil
+	}
+
+	transferId := ts.ToId(m["transfer"])
+
+	threatId := ts.AddThreat("", m["threat"])
+	boundaryId := ts.AddBoundary("", m["boundary"])
+	componentId := ts.AddComponent("", m["component"])
+
+	return transferId, &Transfer{
+		Transfer:  m["transfer"],
+		Boundary:  boundaryId,
+		Component: componentId,
+		Threat:    threatId,
+		Reference: m["reference"],
+		Source:    source,
+	}
+}
+
+func (ts *ThreatSpec) ParseAcceptance(line string, source *Source) (Id, *Acceptance) {
+	m := ts.matchLine(line, acceptancePattern)
+	if m == nil {
+		return "", nil
+	}
+
+	acceptanceId := ts.ToId(m["acceptance"])
+
+	boundaryId := ts.AddBoundary("", m["boundary"])
+	componentId := ts.AddComponent("", m["component"])
+	threatId := ts.AddThreat("", m["threat"])
+
+	return acceptanceId, &Acceptance{
+		Acceptance: m["acceptance"],
+		Boundary:   boundaryId,
+		Component:  componentId,
+		Threat:     threatId,
+		Reference:  m["reference"],
+		Source:     source,
+	}
+}
+
+func (ts *ThreatSpec) AddBoundary(id Id, boundary string) Id {
+	if boundary == "" {
+		return ""
+	}
+
+	if id == "" {
+		id = ts.ToId(boundary)
+	}
 
 	if _, ok := ts.Boundaries[id]; !ok {
 		ts.Boundaries[id] = &Boundary{Name: boundary}
@@ -268,8 +350,10 @@ func (ts *ThreatSpec) AddBoundary(boundary string) Id {
 	return id
 }
 
-func (ts *ThreatSpec) AddComponent(component string) Id {
-	id := ts.ToId(component)
+func (ts *ThreatSpec) AddComponent(id Id, component string) Id {
+	if id == "" {
+		id = ts.ToId(component)
+	}
 
 	if _, ok := ts.Components[id]; !ok {
 		ts.Components[id] = &Component{Name: component}
@@ -278,14 +362,27 @@ func (ts *ThreatSpec) AddComponent(component string) Id {
 	return id
 }
 
-func (ts *ThreatSpec) AddThreat(threat string) Id {
-	id := ts.ToId(threat)
+func (ts *ThreatSpec) AddThreat(id Id, threat string) Id {
+	if id == "" {
+		id = ts.ToId(threat)
+	}
 
 	if _, ok := ts.Threats[id]; !ok {
 		ts.Threats[id] = &Threat{Name: threat, Reference: ""}
 	}
 
 	return id
+}
+
+func (ts *ThreatSpec) AddAlias(id Id, alias *Alias) {
+	switch strings.ToLower(alias.Class) {
+	case "boundary":
+		ts.AddBoundary(id, alias.Text)
+	case "component":
+		ts.AddComponent(id, alias.Text)
+	case "threat":
+		ts.AddThreat(id, alias.Text)
+	}
 }
 
 func (ts *ThreatSpec) AddMitigation(id Id, mitigation *Mitigation) {
@@ -296,11 +393,53 @@ func (ts *ThreatSpec) AddExposure(id Id, exposure *Exposure) {
 	ts.Projects[ProjectName].Exposures[id] = append(ts.Projects[ProjectName].Exposures[id], exposure)
 }
 
+func (ts *ThreatSpec) AddTransfer(id Id, transfer *Transfer) {
+	ts.Projects[ProjectName].Transfers[id] = append(ts.Projects[ProjectName].Transfers[id], transfer)
+}
+
+func (ts *ThreatSpec) AddAcceptance(id Id, acceptance *Acceptance) {
+	ts.Projects[ProjectName].Acceptances[id] = append(ts.Projects[ProjectName].Acceptances[id], acceptance)
+}
+
 func (ts *ThreatSpec) Parse(filenames []string) error {
 
 	for _, filename := range filenames {
-		if err := ts.ParseFile(filename); err != nil {
-			return err
+		switch path.Ext(filename) {
+		case ".go":
+			if err := ts.ParseFile(filename); err != nil {
+				return err
+			}
+		case ".threatspec":
+			if err := ts.ParseSpecFile(filename); err != nil {
+				return err
+			}
+		case ".json":
+			if err := ts.LoadFile(filename); err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
+}
+
+func (ts *ThreatSpec) ParseSpecFile(filename string) error {
+	content, err := ioutil.ReadFile(filename)
+	if err != nil {
+		return err
+	}
+
+	for _, line := range strings.Split(string(content), "\n") {
+		if id, alias := ts.ParseAlias(line); alias != nil {
+			ts.AddAlias(id, alias)
+		} else if id, mitigation := ts.ParseMitigation(line, nil); mitigation != nil {
+			ts.AddMitigation(id, mitigation)
+		} else if id, exposure := ts.ParseExposure(line, nil); exposure != nil {
+			ts.AddExposure(id, exposure)
+		} else if id, transfer := ts.ParseTransfer(line, nil); transfer != nil {
+			ts.AddTransfer(id, transfer)
+		} else if id, acceptance := ts.ParseAcceptance(line, nil); acceptance != nil {
+			ts.AddAcceptance(id, acceptance)
 		}
 	}
 
@@ -316,6 +455,18 @@ func (ts *ThreatSpec) ParseFile(filename string) error {
 	}
 
 	cmap := ast.NewCommentMap(fset, f, f.Comments)
+
+	// Iterate all looking for non-function comments
+	for _, lines := range cmap.Comments() {
+		for _, line := range strings.Split(lines.Text(), "\n") {
+
+			if id, alias := ts.ParseAlias(line); alias != nil {
+				ts.AddAlias(id, alias)
+			}
+		}
+	}
+
+	// Look for function-specific comments
 	ast.Inspect(f, func(n ast.Node) bool {
 		switch x := n.(type) {
 		case *ast.FuncDecl:
@@ -347,6 +498,10 @@ func (ts *ThreatSpec) ParseFile(filename string) error {
 						ts.AddMitigation(id, mitigation)
 					} else if id, exposure := ts.ParseExposure(line, source); exposure != nil {
 						ts.AddExposure(id, exposure)
+					} else if id, transfer := ts.ParseTransfer(line, source); transfer != nil {
+						ts.AddTransfer(id, transfer)
+					} else if id, acceptance := ts.ParseAcceptance(line, source); acceptance != nil {
+						ts.AddAcceptance(id, acceptance)
 					}
 				}
 			}
@@ -354,6 +509,7 @@ func (ts *ThreatSpec) ParseFile(filename string) error {
 		}
 		return true
 	})
+
 	return nil
 }
 
