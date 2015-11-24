@@ -2,7 +2,11 @@
   "threats": {
     "@cats_like_milk": {
       "name": "true story",
-      "reference": ""
+      "description": "cats really like milk, and cream, and icecream, and more milk. But not baths.",
+      "references": [
+        "http://catsarecool.com",
+        "http://theweeklymilk.com"
+      ]
     }
   }
 }

@@ -20,10 +20,10 @@ var idCleanPattern = regexp.MustCompile(`[^a-zA-Z0-9 ]+`)
 var idSpacePattern = regexp.MustCompile(`\s+`)
 
 var aliasPattern = regexp.MustCompile(`(?i)^\s*alias (?P<class>boundary|component|threat) (?P<alias>\@[a-z0-9_]+?) to (?P<text>.+?)\s*$`)
-var mitigationPattern = regexp.MustCompile(`(?i)^\s*mitigates (?:(?P<boundary>.+?):)?(?P<component>.+?) against (?P<threat>.+?) with (?P<mitigation>.+?)\s*(?:\((?P<ref>.*?)\))?\s*$`)
-var exposurePattern = regexp.MustCompile(`(?i)^\s*exposes (?:(?P<boundary>.+?):)?(?P<component>.+?) to (?P<threat>.+?) with (?P<exposure>.+?)\s*(?:\((?P<ref>.*?)\))?\s*$`)
-var acceptancePattern = regexp.MustCompile(`(?i)^\s*accepts (?P<threat>.+?) to (?:(?P<boundary>.+?):)?(?P<component>.+?) with (?P<acceptance>.+?)\s*(?:\((?P<ref>.*?)\))?\s*$`)
-var transferPattern = regexp.MustCompile(`(?i)^\s*transfers (?P<threat>.+?) to (?:(?P<boundary>.+?):)?(?P<component>.+?) with (?P<transfer>.+?)\s*(?:\((?P<ref>.*?)\))?\s*$`)
+var mitigationPattern = regexp.MustCompile(`(?i)^\s*mitigates (?:(?P<boundary>.+?):)?(?P<component>.+?) against (?P<threat>.+?) with (?P<mitigation>.+?)\s*(?:\((?P<references>.*?)\))?\s*$`)
+var exposurePattern = regexp.MustCompile(`(?i)^\s*exposes (?:(?P<boundary>.+?):)?(?P<component>.+?) to (?P<threat>.+?) with (?P<exposure>.+?)\s*(?:\((?P<references>.*?)\))?\s*$`)
+var acceptancePattern = regexp.MustCompile(`(?i)^\s*accepts (?P<threat>.+?) to (?:(?P<boundary>.+?):)?(?P<component>.+?) with (?P<acceptance>.+?)\s*(?:\((?P<references>.*?)\))?\s*$`)
+var transferPattern = regexp.MustCompile(`(?i)^\s*transfers (?P<threat>.+?) to (?:(?P<boundary>.+?):)?(?P<component>.+?) with (?P<transfer>.+?)\s*(?:\((?P<references>.*?)\))?\s*$`)
 
 /* ****************************************************************
  * ThreatSpec intermediate representation
@@ -46,16 +46,19 @@ type Alias struct {
 }
 
 type Boundary struct {
-	Name string `json:"name"`
+	Name        string `json:"name"`
+	Description string `json:"description,omitempty"`
 }
 
 type Component struct {
-	Name string `json:"name"`
+	Name        string `json:"name"`
+	Description string `json:"description,omitempty"`
 }
 
 type Threat struct {
-	Name      string `json:"name"`
-	Reference string `json:"reference"`
+	Name        string   `json:"name"`
+	Description string   `json:"description,omitempty"`
+	References  []string `json:"references,omitempty"`
 }
 
 type Source struct {
@@ -65,39 +68,39 @@ type Source struct {
 }
 
 type Mitigation struct {
-	Mitigation string  `json:"mitigation"`
-	Boundary   Id      `json:"boundary"`
-	Component  Id      `json:"component"`
-	Threat     Id      `json:"threat"`
-	Reference  string  `json:"reference"`
-	Source     *Source `json:"source,omitempty"`
+	Mitigation string   `json:"mitigation"`
+	Boundary   Id       `json:"boundary"`
+	Component  Id       `json:"component"`
+	Threat     Id       `json:"threat"`
+	References []string `json:"references,omitempty"`
+	Source     *Source  `json:"source,omitempty"`
 }
 
 type Exposure struct {
-	Exposure  string  `json:"exposure"`
-	Boundary  Id      `json:"boundary"`
-	Component Id      `json:"component"`
-	Threat    Id      `json:"threat"`
-	Reference string  `json:"reference"`
-	Source    *Source `json:"source,omitempty"`
+	Exposure   string   `json:"exposure"`
+	Boundary   Id       `json:"boundary"`
+	Component  Id       `json:"component"`
+	Threat     Id       `json:"threat"`
+	References []string `json:"references,omitempty"`
+	Source     *Source  `json:"source,omitempty"`
 }
 
 type Transfer struct {
-	Transfer  string  `json:"transfer"`
-	Boundary  Id      `json:"boundary"`
-	Component Id      `json:"component"`
-	Threat    Id      `json:"threat"`
-	Reference string  `json:"reference"`
-	Source    *Source `json:"source,omitempty"`
+	Transfer   string   `json:"transfer"`
+	Boundary   Id       `json:"boundary"`
+	Component  Id       `json:"component"`
+	Threat     Id       `json:"threat"`
+	References []string `json:"references,omitempty"`
+	Source     *Source  `json:"source,omitempty"`
 }
 
 type Acceptance struct {
-	Acceptance string  `json:"acceptance"`
-	Boundary   Id      `json:"boundary"`
-	Component  Id      `json:"component"`
-	Threat     Id      `json:"threat"`
-	Reference  string  `json:"reference"`
-	Source     *Source `json:"source,omitempty"`
+	Acceptance string   `json:"acceptance"`
+	Boundary   Id       `json:"boundary"`
+	Component  Id       `json:"component"`
+	Threat     Id       `json:"threat"`
+	References []string `json:"references,omitempty"`
+	Source     *Source  `json:"source,omitempty"`
 }
 
 type Call struct {
@@ -219,6 +222,14 @@ func (ts *ThreatSpec) ToId(name string) Id {
 	return Id(fmt.Sprintf("@%s", lower))
 }
 
+func (ts *ThreatSpec) SplitReferences(references string) []string {
+	if references == "" {
+		return nil
+	}
+
+	return strings.Split(references, ",")
+}
+
 func (ts *ThreatSpec) matchLine(line string, re *regexp.Regexp) map[string]string {
 	match := re.FindStringSubmatch(line)
 	if match == nil {
@@ -263,7 +274,7 @@ func (ts *ThreatSpec) ParseMitigation(line string, source *Source) (Id, *Mitigat
 		Boundary:   boundaryId,
 		Component:  componentId,
 		Threat:     threatId,
-		Reference:  m["reference"],
+		References: ts.SplitReferences(m["references"]),
 		Source:     source,
 	}
 }
@@ -281,12 +292,12 @@ func (ts *ThreatSpec) ParseExposure(line string, source *Source) (Id, *Exposure)
 	threatId := ts.AddThreat("", m["threat"])
 
 	return exposureId, &Exposure{
-		Exposure:  m["exposure"],
-		Boundary:  boundaryId,
-		Component: componentId,
-		Threat:    threatId,
-		Reference: m["reference"],
-		Source:    source,
+		Exposure:   m["exposure"],
+		Boundary:   boundaryId,
+		Component:  componentId,
+		Threat:     threatId,
+		References: ts.SplitReferences(m["references"]),
+		Source:     source,
 	}
 }
 
@@ -303,12 +314,12 @@ func (ts *ThreatSpec) ParseTransfer(line string, source *Source) (Id, *Transfer)
 	componentId := ts.AddComponent("", m["component"])
 
 	return transferId, &Transfer{
-		Transfer:  m["transfer"],
-		Boundary:  boundaryId,
-		Component: componentId,
-		Threat:    threatId,
-		Reference: m["reference"],
-		Source:    source,
+		Transfer:   m["transfer"],
+		Boundary:   boundaryId,
+		Component:  componentId,
+		Threat:     threatId,
+		References: ts.SplitReferences(m["references"]),
+		Source:     source,
 	}
 }
 
@@ -329,7 +340,7 @@ func (ts *ThreatSpec) ParseAcceptance(line string, source *Source) (Id, *Accepta
 		Boundary:   boundaryId,
 		Component:  componentId,
 		Threat:     threatId,
-		Reference:  m["reference"],
+		References: ts.SplitReferences(m["references"]),
 		Source:     source,
 	}
 }
@@ -368,7 +379,7 @@ func (ts *ThreatSpec) AddThreat(id Id, threat string) Id {
 	}
 
 	if _, ok := ts.Threats[id]; !ok {
-		ts.Threats[id] = &Threat{Name: threat, Reference: ""}
+		ts.Threats[id] = &Threat{Name: threat}
 	}
 
 	return id
