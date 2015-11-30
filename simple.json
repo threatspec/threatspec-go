@@ -1,9 +1,11 @@
 {
-  "metadata": {
+  "specification": {
     "name": "ThreatSpec",
-    "version": "0.1",
-    "created": 1448388050,
-    "updated": 1448388050
+    "version": "0.1.0"
+  },
+  "document": {
+    "created": 1448922785,
+    "updated": 1448922785
   },
   "boundaries": {
     "@webapp": {
@@ -31,19 +33,11 @@
     "@arbitrary_file_writes": {
       "name": "arbitrary file writes"
     },
-    "@cats_like_milk": {
-      "name": "true story",
-      "description": "cats really like milk, and cream, and icecream, and more milk. But not baths.",
-      "references": [
-        "http://catsarecool.com",
-        "http://theweeklymilk.com"
-      ]
-    },
     "@content_injection": {
       "name": "content injection"
     },
     "@cwe_319_cleartext_transmission": {
-      "name": "The software transmits sensitive or security-critical data in cleartext in a communication channel that can be sniffed by unauthorized actors"
+      "name": "@cwe_319_cleartext_transmission"
     },
     "@privilege_escalation": {
       "name": "privilege escalation"

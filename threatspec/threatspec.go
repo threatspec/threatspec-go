@@ -2,7 +2,9 @@ package threatspec
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
+	"github.com/xeipuuv/gojsonschema"
 	"go/ast"
 	"go/parser"
 	"go/token"
@@ -13,8 +15,8 @@ import (
 	"time"
 )
 
-var Name = "ThreatSpec"
-var Version = "0.1"
+var SpecName = "ThreatSpec"
+var SpecVersion = "0.1.0"
 
 var idCleanPattern = regexp.MustCompile(`[^a-zA-Z0-9 ]+`)
 var idSpacePattern = regexp.MustCompile(`\s+`)
@@ -33,11 +35,14 @@ type Id string
 
 var ProjectName string
 
-type Metadata struct {
+type Document struct {
+	Created int64 `json:"created"`
+	Updated int64 `json:"updated"`
+}
+
+type Specification struct {
 	Name    string `json:"name"`
 	Version string `json:"version"`
-	Created int64  `json:"created"`
-	Updated int64  `json:"updated"`
 }
 
 type Alias struct {
@@ -116,12 +121,13 @@ type Project struct {
 }
 
 type ThreatSpec struct {
-	Metadata   *Metadata           `json:"metadata"`
-	Boundaries map[Id]*Boundary    `json:"boundaries"`
-	Components map[Id]*Component   `json:"components"`
-	Threats    map[Id]*Threat      `json:"threats"`
-	Projects   map[string]*Project `json:"projects"`
-	CallFlow   []*Call             `json:"callflow,omitempty"`
+	Specification *Specification      `json:"specification"`
+	Document      *Document           `json:"document"`
+	Boundaries    map[Id]*Boundary    `json:"boundaries"`
+	Components    map[Id]*Component   `json:"components"`
+	Threats       map[Id]*Threat      `json:"threats"`
+	Projects      map[string]*Project `json:"projects"`
+	CallFlow      []*Call             `json:"callflow,omitempty"`
 }
 
 /* ****************************************************************
@@ -176,9 +182,11 @@ func New(project string) *ThreatSpec {
 	ProjectName = project
 
 	ts := &ThreatSpec{
-		Metadata: &Metadata{
-			Name:    Name,
-			Version: Version,
+		Specification: &Specification{
+			Name:    SpecName,
+			Version: SpecVersion,
+		},
+		Document: &Document{
 			Created: time.Now().Unix(),
 			Updated: time.Now().Unix(),
 		},
@@ -204,6 +212,23 @@ func (ts *ThreatSpec) ToJson() string {
 		return ""
 	}
 	return string(dump)
+}
+
+func (ts *ThreatSpec) Validate() error {
+	schemaLoader := gojsonschema.NewStringLoader(ThreatSpecSchemaStrictv0)
+	documentLoader := gojsonschema.NewStringLoader(ts.ToJson())
+
+	if result, err := gojsonschema.Validate(schemaLoader, documentLoader); err != nil {
+		return err
+	} else if result.Valid() {
+		return nil
+	} else {
+		var errs []string
+		for _, desc := range result.Errors() {
+			errs = append(errs, fmt.Sprintf("  - %s", desc))
+		}
+		return errors.New(strings.Join(errs, "\n"))
+	}
 }
 
 func (ts *ThreatSpec) ToId(name string) Id {
