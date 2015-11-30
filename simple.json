@@ -1,9 +1,11 @@
 {
-  "metadata": {
+  "specification": {
     "name": "ThreatSpec",
-    "version": "0.1",
-    "created": 1448303725,
-    "updated": 1448303725
+    "version": "0.1.0"
+  },
+  "document": {
+    "created": 1448922785,
+    "updated": 1448922785
   },
   "boundaries": {
     "@webapp": {
@@ -26,40 +28,28 @@
   },
   "threats": {
     "@arbitrary_file_reads": {
-      "name": "arbitrary file reads",
-      "reference": ""
+      "name": "arbitrary file reads"
     },
     "@arbitrary_file_writes": {
-      "name": "arbitrary file writes",
-      "reference": ""
-    },
-    "@cats_like_milk": {
-      "name": "true story",
-      "reference": ""
+      "name": "arbitrary file writes"
     },
     "@content_injection": {
-      "name": "content injection",
-      "reference": ""
+      "name": "content injection"
     },
     "@cwe_319_cleartext_transmission": {
-      "name": "The software transmits sensitive or security-critical data in cleartext in a communication channel that can be sniffed by unauthorized actors",
-      "reference": ""
+      "name": "@cwe_319_cleartext_transmission"
     },
     "@privilege_escalation": {
-      "name": "privilege escalation",
-      "reference": ""
+      "name": "privilege escalation"
     },
     "@resource_access_abuse": {
-      "name": "resource access abuse",
-      "reference": ""
+      "name": "resource access abuse"
     },
     "@unauthorised_access": {
-      "name": "unauthorised access",
-      "reference": ""
+      "name": "unauthorised access"
     },
     "@xss_injection": {
-      "name": "XSS injection",
-      "reference": ""
+      "name": "XSS injection"
     }
   },
   "projects": {
@@ -71,7 +61,6 @@
             "boundary": "@webapp",
             "component": "@web",
             "threat": "@resource_access_abuse",
-            "reference": "",
             "source": {
               "function": "main.makeHandler",
               "file": "simple.go",
@@ -85,7 +74,6 @@
             "boundary": "@webapp",
             "component": "@web",
             "threat": "@privilege_escalation",
-            "reference": "",
             "source": {
               "function": "main.main",
               "file": "simple.go",
@@ -99,7 +87,6 @@
             "boundary": "@webapp",
             "component": "@filesystem",
             "threat": "@unauthorised_access",
-            "reference": "",
             "source": {
               "function": "main.(*Page).save",
               "file": "simple.go",
@@ -115,7 +102,6 @@
             "boundary": "@webapp",
             "component": "@app",
             "threat": "@xss_injection",
-            "reference": "",
             "source": {
               "function": "main.editHandler",
               "file": "simple.go",
@@ -127,7 +113,6 @@
             "boundary": "@webapp",
             "component": "@app",
             "threat": "@content_injection",
-            "reference": "",
             "source": {
               "function": "main.saveHandler",
               "file": "simple.go",
@@ -143,7 +128,6 @@
             "boundary": "",
             "component": "@user",
             "threat": "@cwe_319_cleartext_transmission",
-            "reference": "",
             "source": {
               "function": "main.main",
               "file": "simple.go",
@@ -159,7 +143,6 @@
             "boundary": "@webapp",
             "component": "@filesystem",
             "threat": "@arbitrary_file_writes",
-            "reference": "",
             "source": {
               "function": "main.(*Page).save",
               "file": "simple.go",
@@ -171,7 +154,6 @@
             "boundary": "@webapp",
             "component": "@filesystem",
             "threat": "@arbitrary_file_reads",
-            "reference": "",
             "source": {
               "function": "main.loadPage",
               "file": "simple.go",
