@@ -3,13 +3,13 @@ package main
 import (
 	"flag"
 	"fmt"
-	"github.com/srenatus/threatspec-go/threatspec"
+	"github.com/threatspec/threatspec-go/threatspec"
 	"os"
 )
 
 func main() {
 	flag.Parse()
-	ts, err := threatspec.Load(flag.Args())
+	ts, err := threatspec.LoadFiles(flag.Args())
 	if err != nil {
 		fmt.Println(err)
 		os.Exit(2)

@@ -3,7 +3,7 @@ package main
 import (
 	"flag"
 	"fmt"
-	"github.com/srenatus/threatspec-go/threatspec"
+	"github.com/threatspec/threatspec-go/threatspec"
 	"io/ioutil"
 	"os"
 )
@@ -15,7 +15,6 @@ func main() {
 
 	ts := threatspec.New(*project)
 	if err := ts.Parse(flag.Args()); err != nil {
-		fmt.Println("Could not parse flags")
 		fmt.Println(err)
 		os.Exit(1)
 	}

@@ -1,5 +1,7 @@
 package threatspec
 
+// Note the major version of the specification version is hardcoded
+// in the below specification
 const ThreatSpecSchemaStrictv0 string = `{
   "schema": "http://json-schema.org/draft-04/schema#",
   "title": "threatspec_schema_strict",

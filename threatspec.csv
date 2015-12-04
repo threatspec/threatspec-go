@@ -1,0 +1,9 @@
+boundary,component,threat,type,value,function,file,line
+WebApp,Web,resource access abuse,mitigation,basic input validation,main.makeHandler,simple.go,86
+WebApp,Web,privilege escalation,mitigation,non-privileged port,main.main,simple.go,99
+WebApp,FileSystem,unauthorised access,mitigation,strict file permissions,main.(*Page).save,simple.go,29
+WebApp,App,XSS injection,exposure,insufficient input validation,main.editHandler,simple.go,54
+WebApp,App,content injection,exposure,insufficient input validation,main.saveHandler,simple.go,63
+User,Browser,The software transmits sensitive or security-critical data in cleartext in a communication channel that can be sniffed by unauthorized actors,transfer,non-sensitive information,main.main,simple.go,99
+WebApp,FileSystem,arbitrary file writes,acceptance,filename restrictions,main.(*Page).save,simple.go,29
+WebApp,FileSystem,arbitrary file reads,acceptance,filename restrictions,main.loadPage,simple.go,35

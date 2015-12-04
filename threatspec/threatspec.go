@@ -21,11 +21,13 @@ var SpecVersion = "0.1.0"
 var idCleanPattern = regexp.MustCompile(`[^a-zA-Z0-9 ]+`)
 var idSpacePattern = regexp.MustCompile(`\s+`)
 
-var aliasPattern = regexp.MustCompile(`(?i)^\s*alias (?P<class>boundary|component|threat) (?P<alias>\@[a-z0-9_]+?) to (?P<text>.+?)\s*$`)
-var mitigationPattern = regexp.MustCompile(`(?i)^\s*mitigates (?:(?P<boundary>.+?):)?(?P<component>.+?) against (?P<threat>.+?) with (?P<mitigation>.+?)\s*(?:\((?P<references>.*?)\))?\s*$`)
-var exposurePattern = regexp.MustCompile(`(?i)^\s*exposes (?:(?P<boundary>.+?):)?(?P<component>.+?) to (?P<threat>.+?) with (?P<exposure>.+?)\s*(?:\((?P<references>.*?)\))?\s*$`)
-var acceptancePattern = regexp.MustCompile(`(?i)^\s*accepts (?P<threat>.+?) to (?:(?P<boundary>.+?):)?(?P<component>.+?) with (?P<acceptance>.+?)\s*(?:\((?P<references>.*?)\))?\s*$`)
-var transferPattern = regexp.MustCompile(`(?i)^\s*transfers (?P<threat>.+?) to (?:(?P<boundary>.+?):)?(?P<component>.+?) with (?P<transfer>.+?)\s*(?:\((?P<references>.*?)\))?\s*$`)
+var triggerPattern = regexp.MustCompile(`(?i)^\s*@(?P<type>mitigates|exposes|transfers|accepts|alias)`)
+
+var aliasPattern = regexp.MustCompile(`(?i)^\s*@alias (?P<class>boundary|component|threat) (?P<alias>\@[a-z0-9_]+?) to (?P<text>.+?)\s*$`)
+var mitigationPattern = regexp.MustCompile(`(?i)^\s*@mitigates (?P<boundary>.+?):(?P<component>.+?) against (?P<threat>.+?) with (?P<mitigation>.+?)\s*(?:\((?P<references>.*?)\))?\s*$`)
+var exposurePattern = regexp.MustCompile(`(?i)^\s*@exposes (?P<boundary>.+?):(?P<component>.+?) to (?P<threat>.+?) with (?P<exposure>.+?)\s*(?:\((?P<references>.*?)\))?\s*$`)
+var acceptancePattern = regexp.MustCompile(`(?i)^\s*@accepts (?P<threat>.+?) to (?P<boundary>.+?):(?P<component>.+?) with (?P<acceptance>.+?)\s*(?:\((?P<references>.*?)\))?\s*$`)
+var transferPattern = regexp.MustCompile(`(?i)^\s*@transfers (?P<threat>.+?) to (?P<boundary>.+?):(?P<component>.+?) with (?P<transfer>.+?)\s*(?:\((?P<references>.*?)\))?\s*$`)
 
 /* ****************************************************************
  * ThreatSpec intermediate representation
@@ -214,9 +216,9 @@ func (ts *ThreatSpec) ToJson() string {
 	return string(dump)
 }
 
-func (ts *ThreatSpec) Validate() error {
+func (ts *ThreatSpec) ValidateJson(jsonBlob string) error {
 	schemaLoader := gojsonschema.NewStringLoader(ThreatSpecSchemaStrictv0)
-	documentLoader := gojsonschema.NewStringLoader(ts.ToJson())
+	documentLoader := gojsonschema.NewStringLoader(jsonBlob)
 
 	if result, err := gojsonschema.Validate(schemaLoader, documentLoader); err != nil {
 		return err
@@ -224,11 +226,16 @@ func (ts *ThreatSpec) Validate() error {
 		return nil
 	} else {
 		var errs []string
+		errs = append(errs, "JSON schema validation failed:")
 		for _, desc := range result.Errors() {
 			errs = append(errs, fmt.Sprintf("  - %s", desc))
 		}
 		return errors.New(strings.Join(errs, "\n"))
 	}
+}
+
+func (ts *ThreatSpec) Validate() error {
+	return ts.ValidateJson(ts.ToJson())
 }
 
 func (ts *ThreatSpec) ToId(name string) Id {
@@ -267,6 +274,15 @@ func (ts *ThreatSpec) matchLine(line string, re *regexp.Regexp) map[string]strin
 	}
 
 	return result
+}
+
+func (ts *ThreatSpec) ParseTrigger(line string) (string, bool) {
+	m := ts.matchLine(line, triggerPattern)
+	if m == nil {
+		return "", false
+	}
+
+	return m["type"], true
 }
 
 func (ts *ThreatSpec) ParseAlias(line string) (Id, *Alias) {
@@ -442,7 +458,7 @@ func (ts *ThreatSpec) Parse(filenames []string) error {
 	for _, filename := range filenames {
 		switch path.Ext(filename) {
 		case ".go":
-			if err := ts.ParseFile(filename); err != nil {
+			if err := ts.ParseSourceFile(filename); err != nil {
 				return err
 			}
 		case ".threatspec":
@@ -465,25 +481,58 @@ func (ts *ThreatSpec) ParseSpecFile(filename string) error {
 		return err
 	}
 
+	failedMatches := make([]string, 0)
+
 	for _, line := range strings.Split(string(content), "\n") {
-		if id, alias := ts.ParseAlias(line); alias != nil {
-			ts.AddAlias(id, alias)
-		} else if id, mitigation := ts.ParseMitigation(line, nil); mitigation != nil {
-			ts.AddMitigation(id, mitigation)
-		} else if id, exposure := ts.ParseExposure(line, nil); exposure != nil {
-			ts.AddExposure(id, exposure)
-		} else if id, transfer := ts.ParseTransfer(line, nil); transfer != nil {
-			ts.AddTransfer(id, transfer)
-		} else if id, acceptance := ts.ParseAcceptance(line, nil); acceptance != nil {
-			ts.AddAcceptance(id, acceptance)
+
+		matchType, matches := ts.ParseTrigger(line)
+		if !matches {
+			continue
 		}
+
+		switch matchType {
+		case "alias":
+			if id, alias := ts.ParseAlias(line); alias != nil {
+				ts.AddAlias(id, alias)
+			} else {
+				failedMatches = append(failedMatches, line)
+			}
+		case "mitigates":
+			if id, mitigation := ts.ParseMitigation(line, nil); mitigation != nil {
+				ts.AddMitigation(id, mitigation)
+			} else {
+				failedMatches = append(failedMatches, line)
+			}
+		case "exposes":
+			if id, exposure := ts.ParseExposure(line, nil); exposure != nil {
+				ts.AddExposure(id, exposure)
+			} else {
+				failedMatches = append(failedMatches, line)
+			}
+		case "transfers":
+			if id, transfer := ts.ParseTransfer(line, nil); transfer != nil {
+				ts.AddTransfer(id, transfer)
+			} else {
+				failedMatches = append(failedMatches, line)
+			}
+		case "accepts":
+			if id, acceptance := ts.ParseAcceptance(line, nil); acceptance != nil {
+				ts.AddAcceptance(id, acceptance)
+			} else {
+				failedMatches = append(failedMatches, line)
+			}
+		}
+
+	}
+
+	if len(failedMatches) > 0 {
+		return fmt.Errorf("failed to parse lines:\n - %s\n", strings.Join(failedMatches, "\n - "))
 	}
 
 	return nil
 }
 
-func (ts *ThreatSpec) ParseFile(filename string) error {
-
+func (ts *ThreatSpec) ParseSourceFile(filename string) error {
 	fset := token.NewFileSet()
 	f, err := parser.ParseFile(fset, filename, nil, parser.ParseComments)
 	if err != nil {
@@ -492,12 +541,24 @@ func (ts *ThreatSpec) ParseFile(filename string) error {
 
 	cmap := ast.NewCommentMap(fset, f, f.Comments)
 
+	failedMatches := make([]string, 0)
+
 	// Iterate all looking for non-function comments
 	for _, lines := range cmap.Comments() {
 		for _, line := range strings.Split(lines.Text(), "\n") {
 
-			if id, alias := ts.ParseAlias(line); alias != nil {
-				ts.AddAlias(id, alias)
+			matchType, matches := ts.ParseTrigger(line)
+			if !matches {
+				continue
+			}
+
+			switch matchType {
+			case "alias":
+				if id, alias := ts.ParseAlias(line); alias != nil {
+					ts.AddAlias(id, alias)
+				} else {
+					failedMatches = append(failedMatches, line)
+				}
 			}
 		}
 	}
@@ -528,24 +589,50 @@ func (ts *ThreatSpec) ParseFile(filename string) error {
 				Comments: cmap[n]}
 
 			source := function.ToSource()
+
 			for _, lines := range function.Comments {
 				for _, line := range strings.Split(lines.Text(), "\n") {
-					if id, mitigation := ts.ParseMitigation(line, source); mitigation != nil {
-						ts.AddMitigation(id, mitigation)
-					} else if id, exposure := ts.ParseExposure(line, source); exposure != nil {
-						ts.AddExposure(id, exposure)
-					} else if id, transfer := ts.ParseTransfer(line, source); transfer != nil {
-						ts.AddTransfer(id, transfer)
-					} else if id, acceptance := ts.ParseAcceptance(line, source); acceptance != nil {
-						ts.AddAcceptance(id, acceptance)
+
+					matchType, matches := ts.ParseTrigger(line)
+					if !matches {
+						continue
+					}
+
+					switch matchType {
+					case "mitigates":
+						if id, mitigation := ts.ParseMitigation(line, source); mitigation != nil {
+							ts.AddMitigation(id, mitigation)
+						} else {
+							failedMatches = append(failedMatches, line)
+						}
+					case "exposes":
+						if id, exposure := ts.ParseExposure(line, source); exposure != nil {
+							ts.AddExposure(id, exposure)
+						} else {
+							failedMatches = append(failedMatches, line)
+						}
+					case "transfers":
+						if id, transfer := ts.ParseTransfer(line, source); transfer != nil {
+							ts.AddTransfer(id, transfer)
+						} else {
+							failedMatches = append(failedMatches, line)
+						}
+					case "accepts":
+						if id, acceptance := ts.ParseAcceptance(line, source); acceptance != nil {
+							ts.AddAcceptance(id, acceptance)
+						} else {
+							failedMatches = append(failedMatches, line)
+						}
 					}
 				}
 			}
-
 		}
 		return true
 	})
 
+	if len(failedMatches) > 0 {
+		return fmt.Errorf("failed to parse lines:\n - %s\n", strings.Join(failedMatches, "\n - "))
+	}
 	return nil
 }
 
@@ -555,13 +642,17 @@ func (ts *ThreatSpec) LoadFile(filename string) error {
 		return err
 	}
 
+	if err := ts.ValidateJson(string(jsonBlob)); err != nil {
+		return err
+	}
+
 	if err := json.Unmarshal(jsonBlob, ts); err != nil {
 		return err
 	}
 	return nil
 }
 
-func Load(filenames []string) (*ThreatSpec, error) {
+func LoadFiles(filenames []string) (*ThreatSpec, error) {
 	ts := new(ThreatSpec)
 	for _, filename := range filenames {
 		if err := ts.LoadFile(filename); err != nil {

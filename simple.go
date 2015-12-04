@@ -24,14 +24,14 @@ type Page struct {
 	Body  []byte
 }
 
-// Accepts arbitrary file writes to WebApp:FileSystem with filename restrictions
-// Mitigates WebApp:FileSystem against unauthorised access with strict file permissions
+// @accepts arbitrary file writes to WebApp:FileSystem with filename restrictions
+// @mitigates WebApp:FileSystem against unauthorised access with strict file permissions
 func (p *Page) save() error {
 	filename := p.Title + ".txt"
 	return ioutil.WriteFile(filename, p.Body, 0600)
 }
 
-// Accepts arbitrary file reads to WebApp:FileSystem with filename restrictions
+// @accepts arbitrary file reads to WebApp:FileSystem with filename restrictions
 func loadPage(title string) (*Page, error) {
 	filename := title + ".txt"
 	body, err := ioutil.ReadFile(filename)
@@ -50,7 +50,7 @@ func viewHandler(w http.ResponseWriter, r *http.Request, title string) {
 	renderTemplate(w, "view", p)
 }
 
-// Exposes WebApp:App to XSS injection with insufficient input validation
+// @exposes WebApp:App to XSS injection with insufficient input validation
 func editHandler(w http.ResponseWriter, r *http.Request, title string) {
 	p, err := loadPage(title)
 	if err != nil {
@@ -59,7 +59,7 @@ func editHandler(w http.ResponseWriter, r *http.Request, title string) {
 	renderTemplate(w, "edit", p)
 }
 
-// Exposes WebApp:App to content injection with insufficient input validation
+// @exposes WebApp:App to content injection with insufficient input validation
 func saveHandler(w http.ResponseWriter, r *http.Request, title string) {
 	body := r.FormValue("body")
 	p := &Page{Title: title, Body: []byte(body)}
@@ -82,7 +82,7 @@ func renderTemplate(w http.ResponseWriter, tmpl string, p *Page) {
 
 var validPath = regexp.MustCompile("^/(edit|save|view)/([a-zA-Z0-9]+)$")
 
-// Mitigates WebApp:Web against resource access abuse with basic input validation
+// @mitigates WebApp:Web against resource access abuse with basic input validation
 func makeHandler(fn func(http.ResponseWriter, *http.Request, string)) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		m := validPath.FindStringSubmatch(r.URL.Path)
@@ -94,8 +94,8 @@ func makeHandler(fn func(http.ResponseWriter, *http.Request, string)) http.Handl
 	}
 }
 
-// Mitigates WebApp:Web against privilege escalation with non-privileged port
-// Transfers @cwe_319_cleartext_transmission to User with non-sensitive information
+// @mitigates WebApp:Web against privilege escalation with non-privileged port
+// @transfers @cwe_319_cleartext_transmission to User:Browser with non-sensitive information
 func main() {
 	flag.Parse()
 	http.HandleFunc("/view/", makeHandler(viewHandler))
