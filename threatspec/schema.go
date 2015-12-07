@@ -110,16 +110,19 @@ const ThreatSpecSchemaStrictv0 string = `{
               "type": "object",
               "patternProperties": {
                 "^@[a-zA-Z0-9_]+$": {
-                  "type": "object",
-                  "additionalProperties": false,
-                  "required": ["mitigation","boundary","component","threat"],
-                  "properities": {
-                    "mitigation": { "type": "string" },
-                    "boundary": { "$ref": "#/definitions/id" },
-                    "component": { "$ref": "#/definitions/id" },
-                    "threat": { "$ref": "#/definitions/id" },
-                    "references": { "$ref": "#/definitions/references" },
-                    "source": { "$ref": "#/definitions/source" }
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": ["mitigation","boundary","component","threat"],
+                    "properities": {
+                      "mitigation": { "type": "string" },
+                      "boundary": { "$ref": "#/definitions/id" },
+                      "component": { "$ref": "#/definitions/id" },
+                      "threat": { "$ref": "#/definitions/id" },
+                      "references": { "$ref": "#/definitions/references" },
+                      "source": { "$ref": "#/definitions/source" }
+                    }
                   }
                 }
               }
@@ -128,16 +131,19 @@ const ThreatSpecSchemaStrictv0 string = `{
               "type": "object",
               "patternProperties": {
                 "^@[a-zA-Z0-9_]+$": {
-                  "type": "object",
-                  "additionalProperties": false,
-                  "required": ["exposure","boundary","component","threat"],
-                  "properities": {
-                    "exposure": { "type": "string" },
-                    "boundary": { "$ref": "#/definitions/id" },
-                    "component": { "$ref": "#/definitions/id" },
-                    "threat": { "$ref": "#/definitions/id" },
-                    "references": { "$ref": "#/definitions/references" },
-                    "source": { "$ref": "#/definitions/source" }
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": ["exposure","boundary","component","threat"],
+                    "properities": {
+                      "exposure": { "type": "string" },
+                      "boundary": { "$ref": "#/definitions/id" },
+                      "component": { "$ref": "#/definitions/id" },
+                      "threat": { "$ref": "#/definitions/id" },
+                      "references": { "$ref": "#/definitions/references" },
+                      "source": { "$ref": "#/definitions/source" }
+                    }
                   }
                 }
               }
@@ -146,16 +152,19 @@ const ThreatSpecSchemaStrictv0 string = `{
               "type": "object",
               "patternProperties": {
                 "^@[a-zA-Z0-9_]+$": {
-                  "type": "object",
-                  "additionalProperties": false,
-                  "required": ["transfer","boundary","component","threat"],
-                  "properities": {
-                    "transfer": { "type": "string" },
-                    "boundary": { "$ref": "#/definitions/id" },
-                    "component": { "$ref": "#/definitions/id" },
-                    "threat": { "$ref": "#/definitions/id" },
-                    "references": { "$ref": "#/definitions/references" },
-                    "source": { "$ref": "#/definitions/source" }
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": ["transfer","boundary","component","threat"],
+                    "properities": {
+                      "transfer": { "type": "string" },
+                      "boundary": { "$ref": "#/definitions/id" },
+                      "component": { "$ref": "#/definitions/id" },
+                      "threat": { "$ref": "#/definitions/id" },
+                      "references": { "$ref": "#/definitions/references" },
+                      "source": { "$ref": "#/definitions/source" }
+                    }
                   }
                 }
               }
@@ -164,16 +173,19 @@ const ThreatSpecSchemaStrictv0 string = `{
               "type": "object",
               "patternProperties": {
                 "^@[a-zA-Z0-9_]+$": {
-                  "type": "object",
-                  "additionalProperties": false,
-                  "required": ["acceptance","boundary","component","threat"],
-                  "properities": {
-                    "acceptance": { "type": "string" },
-                    "boundary": { "$ref": "#/definitions/id" },
-                    "component": { "$ref": "#/definitions/id" },
-                    "threat": { "$ref": "#/definitions/id" },
-                    "references": { "$ref": "#/definitions/references" },
-                    "source": { "$ref": "#/definitions/source" }
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": ["acceptance","boundary","component","threat"],
+                    "properities": {
+                      "acceptance": { "type": "string" },
+                      "boundary": { "$ref": "#/definitions/id" },
+                      "component": { "$ref": "#/definitions/id" },
+                      "threat": { "$ref": "#/definitions/id" },
+                      "references": { "$ref": "#/definitions/references" },
+                      "source": { "$ref": "#/definitions/source" }
+                    }
                   }
                 }
               }
