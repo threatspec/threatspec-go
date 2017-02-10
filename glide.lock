@@ -1,0 +1,10 @@
+hash: 62fe68ba6f267f3aff0cd15ff3293b561d69fec01916055c5fb1db39c2369da5
+updated: 2017-02-07T22:26:39.092358914Z
+imports:
+- name: github.com/xeipuuv/gojsonpointer
+  version: e0fe6f68307607d540ed8eac07a342c33fa1b54a
+- name: github.com/xeipuuv/gojsonreference
+  version: e02fc20de94c78484cd5ffb007f8af96be030a45
+- name: github.com/xeipuuv/gojsonschema
+  version: f06f290571ce81ab347174c6f7ad2e1865af41a7
+testImports: []

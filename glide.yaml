@@ -1,0 +1,3 @@
+package: github.com/threatspec/threatspec-go
+import:
+- package: github.com/xeipuuv/gojsonschema
